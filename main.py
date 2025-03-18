@@ -1,27 +1,40 @@
 from fastapi import FastAPI, HTTPException
-from models import StoreItem
-from database import collection
+from pydantic import BaseModel
+from pymongo import MongoClient
 
+# Initialize FastAPI app
 app = FastAPI()
 
+# Connect to MongoDB
+client = MongoClient("mongodb://localhost:27017")
+db = client.key_value_store
+collection = db.store
+
+# Pydantic Model for Data Validation
+class StoreItem(BaseModel):
+    value: str
+
+# Store a Key-Value Pair
 @app.post("/store/{key}")
 async def store_value(key: str, item: StoreItem):
     """Stores a key-value pair in MongoDB."""
     if collection.find_one({"key": key}):
         raise HTTPException(status_code=400, detail="Key already exists")
-    
+
     collection.insert_one({"key": key, "value": item.value})
     return {"message": "Stored successfully", "key": key, "value": item.value}
 
+# Retrieve a Value by Key
 @app.get("/store/{key}")
 async def get_value(key: str):
     """Retrieves the value for a given key from MongoDB."""
     result = collection.find_one({"key": key})
     if not result:
         raise HTTPException(status_code=404, detail="Key not found")
-    
+
     return {"key": key, "value": result["value"]}
 
+# Delete a Key-Value Pair
 @app.delete("/store/{key}")
 async def delete_value(key: str):
     """Deletes a key-value pair from MongoDB."""
